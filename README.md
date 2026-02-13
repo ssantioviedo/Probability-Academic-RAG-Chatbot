@@ -36,25 +36,25 @@ Given a corpus of unstructured academic documents (Textbooks, Lecture Notes, Exe
 
 ```mermaid
 flowchart LR
-    subgraph Ingestion ["📄 Ingestion Pipeline"]
+    subgraph Ingestion [Ingestion Pipeline]
         direction TB
-        PDFs[("📂 PDF Corpus")] -->|PyMuPDF| Chunks[("✂️ Chunking")]
-        Chunks -->|Metadata| Embed[("🧠 Embeddings")]
-        Embed --> VectorDB[("💾 ChromaDB")]
+        PDFs[PDF Corpus] -->|PyMuPDF| Chunks[Chunking & Metadata]
+        Chunks --> Embed[Embeddings]
+        Embed --> VectorDB[(ChromaDB)]
     end
 
-    subgraph Retrieval ["🔍 Hybrid Retrieval"]
+    subgraph Retrieval [Hybrid Retrieval]
         direction TB
-        Query([User Query]) --> Semantic["🧠 Semantic Search\n(Concepts)"]
-        Query --> Keyword["⌨️ Keyword Search\n(Exact Terms)"]
+        Query([User Query]) --> Semantic[Semantic Search]
+        Query --> Keyword[Keyword Search]
         
         VectorDB -->|Dense Vector| Semantic
         VectorDB -.->|BM25 Sparse| Keyword
         
-        Semantic -->|Ranked List 1| RRF{Reciprocal Rank\nFusion}
+        Semantic -->|Ranked List 1| RRF{Reciprocal Rank Fusion}
         Keyword -->|Ranked List 2| RRF
         
-        RRF -->|Top Relevant Chunks| Context[("📑 Final Context")]
+        RRF -->|Top Relevant Chunks| Context[Final Context]
     end
 
     style PDFs fill:#f9f,stroke:#333,stroke-width:2px,color:black
@@ -68,26 +68,32 @@ flowchart LR
 The system implements an **agentic loop** to handle hard queries where standard retrieval fails (e.g., finding a specific proof in a 500-page book).
 
 ```mermaid
-graph TD
-    Start[User Query] --> Optimize[Query Optimization]
+flowchart TD
+    Start([User Query]) --> Optimize[Query Optimization]
     Optimize --> Retrieve[Hybrid Retrieval]
     Retrieve --> Confidence{Confidence Check}
     
-    Confidence -->|High/Medium| Generate[Generate Answer]
+    Confidence -->|High / Medium| Generate[Generate Answer]
     
-    Confidence -->|Low/Insufficient| DeepSearch[⚠ Deep Search Mode]
+    Confidence -->|Low / Insufficient| DeepSearch[Deep Search Agent]
     
-    subgraph "Agentic Correction Loop"
-    DeepSearch --> Iter[Iterate Priority Authors]
-    Iter --> Fetch[Fetch Expanded Context]
-    Fetch --> Verify{LLM Relevance Check}
-    Verify -->|Relevant| Found[✅ Verified Answer]
-    Verify -->|Irrelevant| Next[Next Author]
-    Next --> Iter
+    subgraph AgentLoop [Self-Correction Loop]
+        direction TB
+        DeepSearch --> Iter[Iterate Priority Authors]
+        Iter --> Fetch[Fetch Extended Context]
+        Fetch --> Verify{LLM Relevance Check}
+        Verify -->|Relevant| Found[Return Verified Context]
+        Verify -->|Irrelevant| Next[Try Next Author]
+        Next --> Iter
     end
     
     Found --> Generate
-    Next -->|Exhausted| Fallback[Fallback Response]
+    Next -.->|Exhausted| Fallback[Fallback Response]
+    
+    style Start fill:#f9f,stroke:#333,stroke-width:2px,color:black
+    style DeepSearch fill:#ff9999,stroke:#333,stroke-width:4px,color:black
+    style Found fill:#99ff99,stroke:#333,stroke-width:2px,color:black
+    style Fallback fill:#cccccc,stroke:#333,stroke-width:2px,color:black
 ```
 
 ---
