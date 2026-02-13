@@ -45,15 +45,21 @@ flowchart LR
 
     subgraph Retrieval ["🔍 Hybrid Retrieval"]
         direction TB
-        Query([User Query]) -->|Hybrid Search| Fusion{RRF Fusion}
-        VectorDB -->|Dense Vector| Fusion
-        VectorDB -.->|BM25 Sparse| Fusion
-        Fusion -->|Top K| Context[("📑 Context Expansion")]
+        Query([User Query]) --> Semantic["🧠 Semantic Search\n(Concepts)"]
+        Query --> Keyword["⌨️ Keyword Search\n(Exact Terms)"]
+        
+        VectorDB -->|Dense Vector| Semantic
+        VectorDB -.->|BM25 Sparse| Keyword
+        
+        Semantic -->|Ranked List 1| RRF{Reciprocal Rank\nFusion}
+        Keyword -->|Ranked List 2| RRF
+        
+        RRF -->|Top Relevant Chunks| Context[("📑 Final Context")]
     end
 
     style PDFs fill:#f9f,stroke:#333,stroke-width:2px,color:black
     style VectorDB fill:#bbf,stroke:#333,stroke-width:2px,color:black
-    style Fusion fill:#ff9,stroke:#333,stroke-width:2px,color:black
+    style RRF fill:#ff9,stroke:#333,stroke-width:2px,color:black
     style Context fill:#bfb,stroke:#333,stroke-width:2px,color:black
 ```
 
@@ -126,8 +132,6 @@ academic-rag-chatbot/
 │   ├── raw/                   # Input PDFs
 │   └── processed/             # Sparse Index (BM25)
 │
-├── docs/                      # Documentation
-│   └── project_requirements.md
 └── chroma_db/                 # Vector Database
 ```
 
