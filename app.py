@@ -10,11 +10,18 @@ Run with: streamlit run app.py
 import sys
 from pathlib import Path
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, timedelta
 import re
 import time
+import json
+
+# Fix for Streamlit Cloud + ChromaDB (requires newer sqlite3)
+__import__('pysqlite3')
+import sys
+sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
 
 import streamlit as st
+import extra_streamlit_components as stx
 
 # Add project root to path
 project_root = Path(__file__).parent
@@ -133,6 +140,121 @@ def initialize_session_state() -> None:
         
     if "query_processor" not in st.session_state:
         st.session_state.query_processor = None
+        
+    if "rate_limit_checked" not in st.session_state:
+        st.session_state.rate_limit_checked = False
+
+    if "rate_limit_data" not in st.session_state:
+        st.session_state.rate_limit_data = None
+
+
+def check_rate_limit(cookie_manager, config) -> tuple[bool, str]:
+    """
+    Check if the user has exceeded the rate limit.
+    
+    Args:
+        cookie_manager: CookieManager instance.
+        config: Config instance.
+        
+    Returns:
+        Tuple of (allowed, message).
+    """
+    if not config.enable_session_limit:
+        return True, ""
+        
+    # Cookie key
+    cookie_name = "rate_limit_data"
+    
+    # 1. Try to get data from session state first (fastest, most up-to-date)
+    if st.session_state.rate_limit_data:
+        data = st.session_state.rate_limit_data
+    else:
+        # 2. Fallback to cookie (first load)
+        try:
+            cookie_data = cookie_manager.get(cookie_name)
+            if cookie_data:
+                if isinstance(cookie_data, str):
+                    data = json.loads(cookie_data)
+                else:
+                    data = cookie_data
+            else:
+                data = None
+        except Exception:
+            data = None
+            
+    current_time = time.time()
+    window_seconds = config.session_window_minutes * 60
+    
+    if not data:
+        # Initialize
+        data = {
+            "count": 0,
+            "start_time": current_time
+        }
+    else:
+        # Check if window expired
+        start_time = data.get("start_time", current_time)
+        if current_time - start_time > window_seconds:
+            # Reset window
+            data = {
+                "count": 0,
+                "start_time": current_time
+            }
+    
+    # Update session state with the guaranteed data
+    st.session_state.rate_limit_data = data
+            
+    # Check limit
+    if data["count"] >= config.session_limit:
+        time_left_mins = int((window_seconds - (current_time - data["start_time"])) / 60) + 1
+        return False, f"⚠️ You have reached the limit of {config.session_limit} questions per {config.session_window_minutes} minutes. Please wait {time_left_mins} minutes."
+        
+    return True, ""
+
+
+def update_rate_limit(cookie_manager, config):
+    """
+    Increment the rate limit counter in the cookie.
+    
+    Args:
+        cookie_manager: CookieManager instance.
+        config: Config instance.
+    """
+    if not config.enable_session_limit:
+        return
+        
+    cookie_name = "rate_limit_data"
+    current_time = time.time()
+    window_seconds = config.session_window_minutes * 60
+    
+    # 1. Get from session state (should be populated by check_rate_limit)
+    data = st.session_state.rate_limit_data
+    
+    if not data:
+        # Should not happen usually
+         data = {
+            "count": 0,
+            "start_time": current_time
+        }
+    
+    # Check reset again just in case (though check_rate_limit handles this)
+    start_time = data.get("start_time", current_time)
+    if current_time - start_time > window_seconds:
+        data = {
+            "count": 1,
+            "start_time": current_time
+        }
+    else:
+        data["count"] += 1
+            
+    # 2. Update session state IMMEDIATELY
+    st.session_state.rate_limit_data = data
+            
+    # 3. Update cookie (for persistence next session)
+    try:
+        cookie_manager.set(cookie_name, json.dumps(data), expires_at=datetime.now() + timedelta(days=1))
+    except Exception as e:
+        print(f"Failed to set cookie: {e}")
 
 
 def load_components() -> tuple[Optional[Retriever], Optional[GeminiClient]]:
@@ -870,6 +992,10 @@ def main() -> None:
     # Render sidebar and get settings
     settings = render_sidebar()
     
+    # Cookie Manager for Rate Limiting
+    # We initialize it here to ensure it's available
+    cookie_manager = stx.CookieManager()
+    
     # Check if components are loaded
     if retriever is None:
         st.warning(
@@ -891,7 +1017,18 @@ def main() -> None:
         render_chat_message(message)
     
     # Chat input
-    if prompt := st.chat_input("Ask a question about Probability & Statistics..."):
+    # First check rate limit to see if we should disable input or show warning
+    is_allowed, limit_message = check_rate_limit(cookie_manager, config=st.session_state.config)
+    
+    prompt = st.chat_input(
+        "Ask a question about Probability & Statistics..." if is_allowed else "Rate limit reached.",
+        disabled=not is_allowed
+    )
+    
+    if not is_allowed:
+        st.warning(limit_message)
+        
+    if prompt and is_allowed:
         # Add user message to history
         user_message = {"role": "user", "content": prompt}
         st.session_state.chat_history.append(user_message)
@@ -939,6 +1076,9 @@ def main() -> None:
                         }
                         st.session_state.chat_history.append(assistant_message)
                         
+                        # Increment Limit Counter (only on success)
+                        update_rate_limit(cookie_manager, st.session_state.config)
+                        
                     except Exception as e:
                         error_msg = f"An error occurred: {str(e)}"
                         st.error(error_msg)
@@ -975,6 +1115,9 @@ def main() -> None:
                             "documents": documents,
                             "confidence": confidence
                         })
+                        
+                        # Increment Limit Counter (only on success)
+                        update_rate_limit(cookie_manager, st.session_state.config)
                         
                     except Exception as e:
                         st.error(f"Search error: {str(e)}")

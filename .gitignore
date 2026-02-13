@@ -15,7 +15,7 @@ __pycache__/
 .Python
 
 # Data (keep structure, ignore content)
-chroma_db/
+#chroma_db/
 logs/
 data/raw/**/*.pdf
 data/processed/

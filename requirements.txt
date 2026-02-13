@@ -37,3 +37,9 @@ google-genai>=1.0.0
 
 # Language detection
 langdetect>=1.0.9
+
+# Cookie management
+extra-streamlit-components>=0.1.60
+
+# Streamlit Cloud Compatibility
+pysqlite3-binary>=0.5.0

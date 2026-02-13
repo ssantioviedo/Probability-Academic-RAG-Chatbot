@@ -99,6 +99,11 @@ class Config:
         self.min_similarity_threshold: float = float(
             os.getenv("MIN_SIMILARITY_THRESHOLD", "0.5")
         )
+
+        # Rate Limiting
+        self.enable_session_limit: bool = os.getenv("ENABLE_SESSION_LIMIT", "False").lower() == "true"
+        self.session_limit: int = int(os.getenv("SESSION_LIMIT", "5"))
+        self.session_window_minutes: int = int(os.getenv("SESSION_WINDOW_MINUTES", "15"))
         
         # Advanced Retrieval settings
         self.chroma_db_path_obj = Path(self.chroma_db_path)
