@@ -309,7 +309,13 @@ def load_components() -> tuple[Optional[Retriever], Optional[GeminiClient]]:
             
     # Always refresh QueryProcessor to pick up prompt changes
     if config.google_api_key:
-         st.session_state.query_processor = QueryProcessor(api_key=config.google_api_key)
+        try:
+            st.session_state.query_processor = QueryProcessor(api_key=config.google_api_key)
+        except Exception as e:
+            print(f"Failed to initialize QueryProcessor: {e}")
+            # Keep previous instance if available, or None
+            if "query_processor" not in st.session_state:
+                st.session_state.query_processor = None
     
     return st.session_state.retriever, st.session_state.llm_client
 
@@ -330,6 +336,10 @@ def render_sidebar() -> dict:
             st.write(f"**API Key Present:** {'✅ Yes' if config.google_api_key else '❌ No'}")
             st.write(f"**Key Length:** {len(config.google_api_key)}")
             st.write(f"**Prefix:** {config.google_api_key[:4]}..." if config.google_api_key else "N/A")
+            
+            qp_status = "✅ Active" if st.session_state.get("query_processor") else "❌ None"
+            st.write(f"**Query Optimizer:** {qp_status}")
+            
             st.code(f"ENABLE_SESSION_LIMIT: {os.getenv('ENABLE_SESSION_LIMIT')}")
             st.code(f"SESSION_LIMIT: {os.getenv('SESSION_LIMIT')}")
         # --- DEBUG SECTION END ---
