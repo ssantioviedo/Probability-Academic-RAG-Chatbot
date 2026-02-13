@@ -321,6 +321,7 @@ def render_sidebar() -> dict:
         Dictionary with current settings.
     """
     with st.sidebar:
+        config = st.session_state.config
         st.header("⚙️ Settings")
         
         # --- DEBUG SECTION START ---
