@@ -258,6 +258,7 @@ def update_rate_limit(cookie_manager, config):
         print(f"Failed to set cookie: {e}")
 
 
+@st.cache_resource(show_spinner=False)
 def load_components() -> tuple[Optional[Retriever], Optional[GeminiClient]]:
     """
     Load retriever and LLM client components.

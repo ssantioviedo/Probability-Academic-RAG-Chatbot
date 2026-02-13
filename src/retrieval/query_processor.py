@@ -62,6 +62,7 @@ class QueryProcessor(LoggerMixin):
             "   DO NOT change the focus! converting a proof request into a general topic search is a FAILURE."
             "\n2. **Translation**: ALWAYS TRANSLATE the query to English for the search index. "
             "   (e.g., 'demostración ley débil' -> 'Weak Law of Large Numbers proof'). "
+            "   Your output MUST BE ENGLISH. If the input is Spanish, TRANSLATE IT."
             "\n3. **Context**: Interpret all terms within Probability Theory and Statistics."
             "\n4. **Acronyms**: Expand standard acronyms (CLT, LLN, MGF, PDF, CDF). "
             "\n5. **Format**: Output ONLY the rewritten English query. No explanations."
@@ -91,6 +92,26 @@ class QueryProcessor(LoggerMixin):
         max_retries = 3
         retry_delay = 5
         
+        # Disable safety settings to prevent silent blocks on academic content
+        safety_settings = [
+            types.SafetySetting(
+                category=types.HarmCategory.HARM_CATEGORY_HARASSMENT,
+                threshold=types.HarmBlockThreshold.BLOCK_NONE,
+            ),
+            types.SafetySetting(
+                category=types.HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+                threshold=types.HarmBlockThreshold.BLOCK_NONE,
+            ),
+            types.SafetySetting(
+                category=types.HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+                threshold=types.HarmBlockThreshold.BLOCK_NONE,
+            ),
+            types.SafetySetting(
+                category=types.HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+                threshold=types.HarmBlockThreshold.BLOCK_NONE,
+            ),
+        ]
+        
         for attempt in range(max_retries):
             try:
                 self.logger.debug(f"Optimizing query: {original_query} (Attempt {attempt+1})")
@@ -100,6 +121,7 @@ class QueryProcessor(LoggerMixin):
                     temperature=0.1,
                     max_output_tokens=200,
                     top_p=0.95,
+                    safety_settings=safety_settings,
                 )
                 
                 response = self.client.models.generate_content(
