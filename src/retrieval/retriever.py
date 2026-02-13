@@ -555,7 +555,8 @@ class Retriever(LoggerMixin):
         
         # Limit expansion to top sources only (avoid expanding too many)
         top_sources = {}
-        for doc in initial_docs[:5]:  # Only expand from top 5 matches
+        # We now allow expanding ALL retrieved docs if the user requested them (up to top_k)
+        for doc in initial_docs: 
             source_file = doc.source_file
             page = doc.page
             if source_file and page:
@@ -631,7 +632,8 @@ class Retriever(LoggerMixin):
         query: str,
         top_k: int = 5,
         expand_pages: int = 2,
-        filters: Optional[dict] = None
+        filters: Optional[dict] = None,
+        max_total_docs: int = 25
     ) -> tuple[str, list[RetrievedDocument]]:
         """
         Retrieve documents with expansion and format as context string.
@@ -641,6 +643,7 @@ class Retriever(LoggerMixin):
             top_k: Number of initial results.
             expand_pages: Pages to expand around matches.
             filters: Metadata filters.
+            max_total_docs: Maximum total documents to return.
         
         Returns:
             Tuple of (context_string, list_of_documents).
@@ -649,7 +652,8 @@ class Retriever(LoggerMixin):
             query=query,
             top_k=top_k,
             expand_pages=expand_pages,
-            filters=filters
+            filters=filters,
+            max_total_docs=max_total_docs
         )
         
         # Format context - group by source for better readability

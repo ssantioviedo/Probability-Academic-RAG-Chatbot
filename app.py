@@ -171,11 +171,13 @@ def load_components() -> tuple[Optional[Retriever], Optional[GeminiClient]]:
         
         try:
             st.session_state.llm_client = create_client_from_config(config)
-            # Initialize Query Processor with its own model (gemini-2.5-flash)
-            st.session_state.query_processor = QueryProcessor(api_key=config.google_api_key)
         except Exception as e:
             st.error(f"Failed to initialize LLM client: {e}")
             return st.session_state.retriever, None
+            
+    # Always refresh QueryProcessor to pick up prompt changes
+    if config.google_api_key:
+         st.session_state.query_processor = QueryProcessor(api_key=config.google_api_key)
     
     return st.session_state.retriever, st.session_state.llm_client
 
@@ -236,7 +238,7 @@ def render_sidebar() -> dict:
         top_k = st.slider(
             "Number of sources",
             min_value=3,
-            max_value=15,
+            max_value=30,
             value=10,
             help="Number of document chunks to retrieve"
         )
@@ -264,7 +266,7 @@ def render_sidebar() -> dict:
                 min_value=1,
                 max_value=3,
                 value=1,
-                help="Number of pages before/after to include (max 25 chunks total)"
+                help="Number of pages before/after to include (max 3 pages)"
             )
             
         # Query Expansion toggle
@@ -490,11 +492,20 @@ def process_query(
 
     # Retrieve context with or without expansion using OPTIMIZED query
     if expand_context:
+        # Dynamic Limit: allow more chunks if user requested more top_k or expansion
+        # Rough calc: top_k * (pages_before + pages_after + 1)
+        # But we don't want to explode. Let's start with a generous cap.
+        # If user asks for 30 sources + 3 pages expansion, that's huge.
+        # We'll set max_total_docs to allow at least what the user explicitly asked for in top_k, 
+        # plus expansion room. 
+        max_total_limit = top_k * 5 # Allow 5 chunks per source on average
+        
         context, documents = retriever.retrieve_context_expanded(
             query=optimized_query,
             top_k=top_k,
             expand_pages=expand_pages,
-            filters=filters if filters else None
+            filters=filters if filters else None,
+            max_total_docs=max_total_limit
         )
     else:
         context, documents = retriever.retrieve_context(
@@ -508,37 +519,87 @@ def process_query(
     confidence_calc = st.session_state.confidence_calculator
     confidence_result = confidence_calc.calculate(similarities)
     
-    # NEW: Relevance Verification
-    # If confidence is high but the content is actually a "False Positive" (e.g. "proof omitted"),
-    # we force the system to treat it as low confidence to trigger the fallback search.
-    if (confidence_result.level == ConfidenceLevel.HIGH or 
-        confidence_result.level == ConfidenceLevel.MEDIUM) and documents and st.session_state.query_processor:
+    # NEW: Smart Relevance Filtering
+    # Instead of failing on the first False Positive, we check the top N results.
+    # We filter out the irrelevant ones (e.g. "proof omitted") and keep the rest.
+    # If valid documents remain, we recalculate confidence.
+    if documents and st.session_state.query_processor and not filters:
         
-        # Check the top document's content
-        top_doc = documents[0]
-        # Prefer context_text if available, otherwise raw text
-        text_to_check = getattr(top_doc, 'context_text', top_doc.text)
-        
-        # Only check if we are not already filtering (if filtering, we trust the filter)
-        if not filters:
-            with st.status("🕵️ Verifying result relevance...", expanded=False) as status:
+        with st.status("🕵️ Verifying result relevance...", expanded=False) as status:
+            valid_documents = []
+            checked_count = 0
+            max_checks = 5 # Check up to top 5 docs
+            
+            for doc in documents[:max_checks]:
+                checked_count += 1
+                # Prefer context_text if available
+                text_to_check = getattr(doc, 'context_text', doc.text)
+                
                 is_relevant = st.session_state.query_processor.verify_content_relevance(
                     query=optimized_query,
                     content=text_to_check
                 )
                 
-                if not is_relevant:
-                    status.update(
-                        label="⚠️ Top result is a False Positive (e.g. proof omitted). Forcing fallback search...", 
-                        state="error"
-                    )
-                    # Force downgrade to trigger fallback
-                    confidence_result.level = ConfidenceLevel.LOW
-                    confidence_result.score = 0.45  # Below threshold
-                    confidence_result.should_respond = True # Still try to respond, but trigger fallback
-                    confidence_result.message = "Initial results deemed insufficient. Trying deep search..."
+                if is_relevant:
+                    valid_documents.append(doc)
                 else:
-                    status.update(label="✅ Content relevance verified", state="complete")
+                    # Log or update status for feedback
+                    # status.write(f"⚠️ Filtered out irrelevant document (Source: {doc.get_citation()})")
+                    pass
+            
+            # Add back any remaining unchecked docs (we only verified the top 5)
+            # If the top 5 were all bad, we might want to discard the rest too? 
+            # Strategy: If we found ANY valid docs in top 5, we keep them + the rest.
+            # If we found NONE in top 5, likely the rest are bad too or irrelevant.
+            # Let's keep it simple: valid_documents contains ONLY verified good docs from top 5 
+            # PLUS the unverified rest? No, unsafe. 
+            # Let's trust the top 5 verification. If we filter top 5, we likely should filter 
+            # the list to ONLY valid ones found.
+            
+            if len(valid_documents) < len(documents[:max_checks]):
+                status.write(f"⚠️ Filtered {checked_count - len(valid_documents)} irrelevant result(s).")
+            
+            # Update the documents list to use ONLY the valid ones (plus maybe the tail if we want only strict top-k checking)
+            # Strict approach: The final list is valid_documents + documents[max_checks:] 
+            # (assuming tail is less likely to be "proof omitted" false positives? No, probably similar).
+            # SAFE APPROACH: If we filtered the top, we should probably stick to the verified ones 
+            # or continue checking (too slow).
+            # Let's use: valid_documents + documents[max_checks:]
+            # But if top 5 were all "proof omitted", usually the rest are worse matches.
+            
+            # Updated Strategy:
+            # - If we found VALID docs in top 5, great. We prioritize them.
+            # - If we found 0 valid docs in top 5, we consider the query failed for this retrieval batch.
+            
+            if valid_documents:
+                # We have some good results! Use them.
+                # Append the rest of the unverified tail (optional, but good for context)
+                # valid_documents.extend(documents[max_checks:]) 
+                # actually, let's stick to valid ones to increase quality
+                
+                documents = valid_documents + documents[max_checks:]
+                status.update(label=f"✅ Verified {len(valid_documents)} relevant source(s)", state="complete")
+                
+                # RECALCULATE CONFIDENCE with the filtered list
+                # This is crucial. If we removed the top result (sim=0.9) and left with #2 (sim=0.8),
+                # confidence might drop or stay high depending on density.
+                similarities = retriever.get_similarities(documents)
+                confidence_result = confidence_calc.calculate(similarities)
+                
+            else:
+                # Top 5 were all IRRELEVANT.
+                status.update(
+                    label="⚠️ Top results were False Positives (e.g. proof omitted). Forcing fallback search...", 
+                    state="error"
+                )
+                # Effective list is empty or just the tail (which is likely bad)
+                # Force low confidence to trigger deep search
+                confidence_result.level = ConfidenceLevel.LOW
+                confidence_result.score = 0.0
+                confidence_result.should_respond = True
+                confidence_result.message = "Initial results deemed irrelevant. Trying deep search..."
+                # We can empty the documents list to avoid showing garbage
+                documents = []
 
     # CRITICAL: Iterative Deep Search (Source-by-Source verification)
     # If confidence is still LOW/INSUFFICIENT, we force a deep search.
@@ -725,6 +786,9 @@ def process_query(
     generation_query = query
     if optimized_query != query:
         generation_query = f"{query}\n[Context: Search performed for '{optimized_query}']"
+        
+    # Update temperature from slider
+    llm_client.temperature = settings.get("temperature", 0.2)
         
     result = llm_client.generate(
         query=generation_query, 
