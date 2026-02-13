@@ -1,0 +1,69 @@
+# ===========================================
+# Academic RAG Chatbot - Git Ignore
+# ===========================================
+
+# Environment
+.env
+venv/
+env/
+.venv/
+prob_chatbot/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Data (keep structure, ignore content)
+chroma_db/
+logs/
+data/raw/**/*.pdf
+data/processed/
+
+# Prompts
+prompts/
+
+# Keep directory structure
+!data/raw/books/.gitkeep
+!data/raw/lecture_notes/.gitkeep
+!data/raw/exercises/.gitkeep
+!data/processed/.gitkeep
+!logs/.gitkeep
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.pydevproject
+.settings/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Build
+build/
+dist/
+*.egg-info/
+*.egg
+.eggs/
+
+# Misc
+*.log
+*.tmp
+*.temp
+*.bak
