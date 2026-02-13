@@ -251,12 +251,33 @@ class GeminiClient(LoggerMixin):
         Returns:
             GenerateContentConfig object.
         """
+        # Disable safety settings for academic content (textbooks might contain "violence" in examples etc)
+        safety_settings = [
+            types.SafetySetting(
+                category=types.HarmCategory.HARM_CATEGORY_HARASSMENT,
+                threshold=types.HarmBlockThreshold.BLOCK_NONE,
+            ),
+            types.SafetySetting(
+                category=types.HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+                threshold=types.HarmBlockThreshold.BLOCK_NONE,
+            ),
+            types.SafetySetting(
+                category=types.HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+                threshold=types.HarmBlockThreshold.BLOCK_NONE,
+            ),
+            types.SafetySetting(
+                category=types.HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+                threshold=types.HarmBlockThreshold.BLOCK_NONE,
+            ),
+        ]
+        
         return types.GenerateContentConfig(
             system_instruction=self.prompt_templates.system_prompt,
             temperature=self.temperature,
             max_output_tokens=self.max_tokens,
             top_p=0.95,
             top_k=40,
+            safety_settings=safety_settings
         )
     
     def _handle_rate_limit(self, attempt: int) -> float:
@@ -340,21 +361,30 @@ class GeminiClient(LoggerMixin):
                     config=self._create_generation_config()
                 )
                 
-                # Extract response text
-                if response.parts:
-                    answer = response.text
-                else:
+                # Robust response extraction
+                answer = ""
+                if response.text:
+                   answer = response.text
+                elif response.parts:
+                   # Fallback manual join if .text property fails but parts exist
+                   answer = "".join([p.text for p in response.parts if p.text])
+
+                if not answer:
                     # Handle blocked or empty responses
-                    if response.prompt_feedback:
-                        self.logger.warning(
-                            f"Response blocked: {response.prompt_feedback}"
-                        )
-                        answer = (
-                            "I apologize, but I cannot generate a response "
-                            "for this query. Please try rephrasing your question."
-                        )
-                    else:
-                        answer = "No response generated. Please try again."
+                    reason = "Unknown"
+                    try:
+                         # Attempt to inspect finish reason if available
+                         if response.candidates and response.candidates[0].finish_reason:
+                             reason = response.candidates[0].finish_reason
+                    except:
+                        pass
+                        
+                    self.logger.warning(f"Response empty. Finish Reason: {reason}")
+                    
+                    answer = (
+                        f"⚠️ The AI could not generate a response (Status: {reason}). "
+                        "This might be due to safety filters or an internal model error."
+                    )
                 
                 generation_time = time.time() - start_time
                 

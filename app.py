@@ -291,6 +291,15 @@ def load_components() -> tuple[Optional[Retriever], Optional[GeminiClient]]:
             )
             return st.session_state.retriever, None
         
+        # Check for placeholder key
+        if "YOUR_" in config.google_api_key or len(config.google_api_key) < 20:
+            st.error(
+                "⚠️ **Invalid Google API Key detected!**\n\n"
+                "It looks like you are using a placeholder key. "
+                "Please update your secrets with a valid key from Google AI Studio."
+            )
+            return st.session_state.retriever, None
+        
         try:
             st.session_state.llm_client = create_client_from_config(config)
         except Exception as e:
