@@ -38,10 +38,12 @@ $$
 X_{n+1} = (aX_n + c) \mod m
 $$
 
-3. **NEVER break equations across multiple lines** unless using proper LaTeX alignment environments
-4. **NEVER output raw text like "X n + 1"** - always use proper subscripts: `X_{n+1}`
-5. **Use proper LaTeX commands**: `\leq`, `\geq`, `\mod`, `\log`, `\inf`, `\sim`, `\in`, `\mathbb{R}`
-6. **ABSOLUTELY NO NAKED LATEX**: `\mu`, `\alpha`, `\frac{1}{2}` MUST be inside dollar signs like `$ \mu $`, `$ \alpha $`, `$ \frac{1}{2} $`.
+3. **NO NESTED DOLLAR SIGNS**: Never use `$` *inside* a math block.
+   - ❌ BAD: `$ P( $ \frac{a}{b} $ ) $`
+   - ✅ GOOD: `$ P(\frac{a}{b}) $`
+4. **Use proper LaTeX commands**: `\leq`, `\geq`, `\in`, `\mathbb{R}`, `\infty`.
+5. **No Naked LaTeX**: Don't use `\\[`, `\\]`, `\\(`, `\\)`. Use `$$` and `$`.
+6. **Complex expressions**: If an equation uses `\frac`, `\sum`, `\int`, or `\lim`, prefer **Block Math** (`$$`) over inline.
 
 **Examples of CORRECT formatting:**
 - Inline: "Sea $ U \sim \text{Uniforme}[0, 1] $ una variable aleatoria"
