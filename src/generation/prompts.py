@@ -42,6 +42,8 @@ $$
    - ❌ BAD: `$ P( $ \frac{a}{b} $ ) $`
    - ✅ GOOD: `$ P(\frac{a}{b}) $`
 4. **Use proper LaTeX commands**: `\leq`, `\geq`, `\in`, `\mathbb{R}`, `\infty`.
+   - ❌ BAD: `σ`, `α`, `π` (Unicode)
+   - ✅ GOOD: `\sigma`, `\alpha`, `\pi` (LaTeX)
 5. **No Naked LaTeX**: Don't use `\\[`, `\\]`, `\\(`, `\\)`. Use `$$` and `$`.
 6. **Complex expressions**: If an equation uses `\frac`, `\sum`, `\int`, or `\lim`, prefer **Block Math** (`$$`) over inline.
 

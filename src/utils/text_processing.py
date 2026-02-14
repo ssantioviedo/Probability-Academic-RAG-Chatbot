@@ -84,6 +84,9 @@ def normalize_latex(text: str) -> str:
     # 0. Fix star-bullets that interfere with KaTeX
     text = _fix_star_bullets(text)
 
+    # 0.5 Replace Unicode math symbols
+    text = _replace_unicode_math(text)
+
     # 0.1 Replace \xrightarrow{X} with \overset{X}{\to} for better KaTeX compatibility
     text = re.sub(r'\\xrightarrow\{([^}]+)\}', r'\\overset{\1}{\\to}', text)
 
@@ -119,6 +122,30 @@ def normalize_latex(text: str) -> str:
     text = re.sub(r'\n{3,}', '\n\n', text)
     return text.strip()
 
+
+# Unicode to LaTeX mapping
+_GREEK_UNICODE = {
+    'α': '\\alpha', 'β': '\\beta', 'γ': '\\gamma', 'δ': '\\delta', 'ε': '\\epsilon',
+    'ζ': '\\zeta', 'η': '\\eta', 'θ': '\\theta', 'ι': '\\iota', 'κ': '\\kappa',
+    'λ': '\\lambda', 'μ': '\\mu', 'ν': '\\nu', 'ξ': '\\xi', 'ο': 'o',
+    'π': '\\pi', 'ρ': '\\rho', 'σ': '\\sigma', 'τ': '\\tau', 'υ': '\\upsilon',
+    'φ': '\\phi', 'χ': '\\chi', 'ψ': '\\psi', 'ω': '\\omega',
+    'Γ': '\\Gamma', 'Δ': '\\Delta', 'Θ': '\\Theta', 'Λ': '\\Lambda',
+    'Ξ': '\\Xi', 'Π': '\\Pi', 'Σ': '\\Sigma', 'Υ': '\\Upsilon',
+    'Φ': '\\Phi', 'Ψ': '\\Psi', 'Ω': '\\Omega',
+    '∞': '\\infty', '≈': '\\approx', '≠': '\\neq', '≤': '\\leq', '≥': '\\geq',
+    '×': '\\times', '·': '\\cdot', '±': '\\pm'
+}
+
+def _replace_unicode_math(text: str) -> str:
+    """Replace Unicode math symbols with LaTeX equivalents."""
+    # We only replace if they are likely used in a math context or single letters.
+    # Since we can't easily distinguish Spanish text from math variables for some chars (like 'o'),
+    # we'll focus on the unambiguous ones.
+    for char, latex in _GREEK_UNICODE.items():
+        if char in text:
+            text = text.replace(char, latex + " ") # Add space after to prevent command merging
+    return text
 
 # ---------------------------------------------------------------------------
 # Star-bullet fix (prevents Markdown italic/bold from breaking KaTeX)
