@@ -100,6 +100,9 @@ flowchart TD
 
 ## Interactive Showcase (Streamlit)
 
+https://huggingface.co/spaces/ssantioviedo/probability-rag-bot
+(Contact me if it's down)
+
 The application provides a clean, research-focused interface:
 
 - **Confidence Badges**: Visual indicators (High/Medium/Low) of answer reliability.
