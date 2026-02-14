@@ -97,6 +97,17 @@ def normalize_latex(text: str) -> str:
     # 3. Convert backtick-wrapped LaTeX to dollar-wrapped
     text = _convert_backtick_latex(text)
 
+    # 3.5. Aggressively wrap common naked math symbols
+    # This catches things like "\alpha" or "\approx" that appear in prose without $
+    # valid_symbols = ["alpha", "beta", "gamma", "delta", "epsilon", "theta", "lambda", "mu", "pi", "sigma", "phi", "omega",
+    #                  "approx", "le", "ge", "leq", "geq", "ne", "neq", "cdot", "times", "frac", "sum", "prod", "int"]
+    # We use a broad regex for these common cases
+    text = re.sub(
+        r'(?<!\$)(?<!\\)(\\(?:alpha|beta|gamma|delta|epsilon|theta|lambda|mu|pi|sigma|phi|omega|approx|le|ge|leq|geq|ne|neq|cdot|times|frac|sum|prod|int|hat|bar|tilde)\b(?:\{[^}]*\})?)', 
+        r'$\1$', 
+        text
+    )
+
     # 4. Wrap standalone math lines as block math
     text = _wrap_math_lines(text)
 
