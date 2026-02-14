@@ -332,18 +332,7 @@ def render_sidebar() -> dict:
         config = st.session_state.config
         st.header("⚙️ Settings")
         
-        # --- DEBUG SECTION START ---
-        with st.expander("🛠️ Deployment Debugger", expanded=False):
-            st.write(f"**API Key Present:** {'✅ Yes' if config.google_api_key else '❌ No'}")
-            st.write(f"**Key Length:** {len(config.google_api_key)}")
-            st.write(f"**Prefix:** {config.google_api_key[:4]}..." if config.google_api_key else "N/A")
-            
-            qp_status = "✅ Active" if st.session_state.get("query_processor") else "❌ None"
-            st.write(f"**Query Optimizer:** {qp_status}")
-            
-            st.code(f"ENABLE_SESSION_LIMIT: {os.getenv('ENABLE_SESSION_LIMIT')}")
-            st.code(f"SESSION_LIMIT: {os.getenv('SESSION_LIMIT')}")
-        # --- DEBUG SECTION END ---
+
 
         # Reset session button (hidden for clarity)ion
         st.subheader("🤖 Model Info")
