@@ -267,12 +267,14 @@ class QueryProcessor(LoggerMixin):
                 answer = response.text.strip().upper()
                 
                 # Log verdict
-                self.logger.debug(f"Relevance check [{attempt+1}]: {answer} for '{query[:20]}...'")
+                self.logger.info(f"Relevance check [{attempt+1}]: RAW='{answer}' for query='{query}'")
                 
                 # "IRRELEVANT" contains "RELEVANT", so we must check for "IRRELEVANT" first
                 if "IRRELEVANT" in answer:
+                     self.logger.info("Verdict: IRRELEVANT")
                      return False
                 elif "RELEVANT" in answer:
+                     self.logger.info("Verdict: RELEVANT")
                      return True
                 else:
                     # Ambiguous response? Default to True to be safe
