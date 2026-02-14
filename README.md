@@ -1,12 +1,3 @@
----
-title: Probability Rag Chatbot
-emoji: 🤖
-colorFrom: blue
-colorTo: indigo
-sdk: docker
-pinned: false
----
-
 # Probability Academic RAG Chatbot
 
 ### PDF Ingestion → Hybrid Retrieval → Deep Search Verification → Answer Generation
@@ -108,6 +99,9 @@ flowchart TD
 ---
 
 ## Interactive Showcase (Streamlit)
+
+https://huggingface.co/spaces/ssantioviedo/probability-rag-bot
+(Contact me if it's down)
 
 The application provides a clean, research-focused interface:
 
