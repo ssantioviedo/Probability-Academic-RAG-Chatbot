@@ -1,12 +1,3 @@
----
-title: Probability Rag Chatbot
-emoji: 🤖
-colorFrom: blue
-colorTo: indigo
-sdk: docker
-pinned: false
----
-
 # Probability Academic RAG Chatbot
 
 ### PDF Ingestion → Hybrid Retrieval → Deep Search Verification → Answer Generation
