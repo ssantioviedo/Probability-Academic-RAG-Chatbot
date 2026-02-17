@@ -190,7 +190,8 @@ class PromptTemplates:
         self,
         question: str,
         context: str,
-        chat_history: Optional[list[dict]] = None
+        chat_history: Optional[list[dict]] = None,
+        target_language: Optional[str] = None
     ) -> FormattedPrompt:
         """
         Format a complete query prompt.
@@ -199,6 +200,7 @@ class PromptTemplates:
             question: User's question.
             context: Retrieved context from bibliography.
             chat_history: Optional conversation history.
+            target_language: Target language code ('en' or 'es').
         
         Returns:
             FormattedPrompt ready for LLM.
@@ -206,11 +208,18 @@ class PromptTemplates:
         context_section = self.format_context(context)
         history_section = self.format_chat_history(chat_history)
         
+        # Add language instruction if specified
+        language_instruction = ""
+        if target_language == 'en':
+            language_instruction = "\n\nCRITICAL: The user asked in English. You MUST respond in ENGLISH."
+        elif target_language == 'es':
+            language_instruction = "\n\nCRITICAL: The user asked in Spanish. You MUST respond in SPANISH."
+        
         full_prompt = QUERY_TEMPLATE.format(
             context_section=context_section,
             chat_history_section=history_section,
             question=question
-        )
+        ) + language_instruction
         
         return FormattedPrompt(
             full_prompt=full_prompt,

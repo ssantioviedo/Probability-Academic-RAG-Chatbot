@@ -14,6 +14,7 @@ from datetime import datetime, timedelta
 import re
 import time
 import json
+from langdetect import detect
 
 # Fix for Streamlit Cloud + ChromaDB (requires newer sqlite3)
 __import__('pysqlite3')
@@ -932,11 +933,29 @@ def process_query(
     # Update temperature from slider
     llm_client.temperature = settings.get("temperature", 0.2)
         
+    # Detect language for response enforcement
+    # Default to English for short/ambiguous queries as requested
+    target_language = 'en'
+    try:
+        if len(query) < 20:
+            target_language = 'en'
+        else:
+            detected = detect(query)
+            # Map common codes if needed, though 'en' and 'es' are standard
+            if detected == 'es':
+                target_language = 'es'
+            else:
+                target_language = 'en'
+    except Exception:
+        # Fallback to English on error
+        target_language = 'en'
+        
     result = llm_client.generate(
         query=generation_query, 
         context=context,
         chat_history=chat_history,
-        sources=sources
+        sources=sources,
+        target_language=target_language
     )
     
     # Normalize LaTeX in the answer

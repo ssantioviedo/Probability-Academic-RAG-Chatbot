@@ -304,7 +304,8 @@ class GeminiClient(LoggerMixin):
         context: str,
         chat_history: Optional[list[dict]] = None,
         sources: Optional[list[dict]] = None,
-        use_cache: bool = True
+        use_cache: bool = True,
+        target_language: Optional[str] = None
     ) -> GenerationResult:
         """
         Generate a response using the Gemini model.
@@ -318,6 +319,7 @@ class GeminiClient(LoggerMixin):
             chat_history: Optional conversation history.
             sources: Source metadata for citation.
             use_cache: Whether to use response cache.
+            target_language: Target language code ('en' or 'es').
         
         Returns:
             GenerationResult with answer and metadata.
@@ -339,7 +341,8 @@ class GeminiClient(LoggerMixin):
         formatted_prompt = self.prompt_templates.format_query(
             question=query,
             context=context,
-            chat_history=chat_history
+            chat_history=chat_history,
+            target_language=target_language
         )
         
         self.logger.debug(
